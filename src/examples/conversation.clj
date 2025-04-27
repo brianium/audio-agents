@@ -1,0 +1,139 @@
+(ns examples.conversation
+  "An example of having an audible conversation with gpt in Clojure"
+  (:require [ayyygents.workflow :refer [ayyygent io-chan]]
+            [audio.microphone :refer [record]]
+            [audio.playback :refer [playback]]
+            [openai.core :as openai]
+            [clojure.core.async :as async :refer [<! go-loop chan]]
+            [clojure.java.io :as io]
+            [clojure.set :as set])
+  (:import [java.io ByteArrayInputStream]))
+
+;;; First: let's define a channel representing us. Audio goes in, user message comes out
+
+(defn mic-chan
+  "mic-chan (♥ω♥*)
+   any input message to this channel will immediately start the mic and output will be sent when
+   recording is finished per the rules of audio.microphone/record."
+  []
+  (let [in         (chan)
+        audio-in   (chan)
+        out        (chan)
+        io         (io-chan in out)
+        transcribe (fn [audio-bytes]
+                     (let [input           (ByteArrayInputStream. audio-bytes)
+                           random-filename (str (java.util.UUID/randomUUID) ".wav")]
+                       (-> (openai/transcribe input random-filename)
+                           (assoc :role :user)
+                           (set/rename-keys {:text :content}))))]
+    (async/pipeline-blocking 1 out (map transcribe) audio-in false)
+    (go-loop []
+      (let [msg (<! in)]
+        (if (nil? msg)
+          (async/close! io)
+          (do
+            (println "Recording")
+            (record (fn [audio-bytes _ _]
+                      (async/put! audio-in audio-bytes)))
+            (recur)))))
+    io))
+
+;;; Next we define an agent for our conversation partner. The agent context will just be an atom with a vector of messages.
+
+(defn conversation-partner
+  "Prompt is text to be used for the system prompt. The persona prompt is used to guide the conversation partner's personality.
+   This example uses gpt-4o and context backed by an atom"
+  [system-prompt persona-prompt]
+  (let [context    (atom [{:role    :system
+                           :content system-prompt}
+                          {:role    :user
+                           :content persona-prompt}])
+        gpt-4o (fn [*context input]
+                 (let [log-entries  (swap! *context conj input)
+                       response     (openai/create-response log-entries)
+                       output-entry {:role    :assistant
+                                     :content (openai/output-text response)
+                                     :format  (openai/format-type response)}]
+                   (swap! *context conj output-entry)
+                   output-entry))]
+    (ayyygent context gpt-4o)))
+
+(defn with-speech
+  "We must give our partner the gift of speech. Attaches a stop-playback function to the agent that
+   can be used to immediately cut audio playback."
+  [ayyygent & {:keys [voice instructions]
+               :or   {voice :onyx}}]
+  (let [out      (chan)
+        io       (io-chan ayyygent out)
+        *stop-fn (atom nil)
+        speak    (fn [{:keys [content]
+                       :as   message} result]
+                   (let [resume-after-playback (fn []
+                                                 (async/put! result message)
+                                                 (async/close! result))
+                         stop-fn               (-> content
+                                                   (openai/tts :voice voice :instructions instructions)
+                                                   (playback :on-complete resume-after-playback))]
+                     (reset! *stop-fn stop-fn)))]
+    (async/pipeline-async 1 out speak ayyygent false)
+    (assoc io :context (:context ayyygent) :mult (:mult ayyygent) :stop-playback (fn []
+                                                                                   (when @*stop-fn
+                                                                                     (@*stop-fn)
+                                                                                     (reset! *stop-fn nil))))))
+
+;;; Let's create a dialogue type that keeps the conversation going
+
+(defn dialogue
+  "A dialogue ping-pongs each agents output to the other agent"
+  [a1 a2 & [xf ex-handler]]
+  (let [in  (chan)
+        out (chan 1 xf ex-handler)
+        io  (io-chan in out)]
+    (go-loop [agents (cycle [a1 a2])]
+      (when-some [msg (<! in)]
+        (async/put! (first agents) msg)
+        (let [message (<! (first agents))]
+          (if (nil? message)
+            (async/close! io)
+            (do (async/put! out message)
+                (async/put! in message)
+                (recur (next agents)))))))
+    io))
+
+
+;;; Let's try a conversation between ourselves and the borg
+
+(defn chat-with-gpt
+  "Start a dialogue with gpt. Returns a channel with the context of the conversation partner. Closing
+   the channel will stop audio playback immediately."
+  [& {:keys [voice instructions prompt persona]}]
+  (let [persona-prompt (slurp (io/resource (str "prompts/personas/" persona ".md")))
+        partner        (-> (io/resource prompt)
+                           (slurp)
+                           (conversation-partner persona-prompt)
+                           (with-speech :voice voice :instructions instructions))
+        mic            (mic-chan)
+        d              (dialogue mic partner)]
+    (go-loop []
+      (let [msg (<! d)]
+        (if (nil? msg)
+          (do ((:stop-playback partner))
+              (async/close! partner)
+              (async/close! mic)
+              (async/close! d))
+          (recur))))
+    (async/put! d "はじめ") ;; The input message just kicks things off - it's input is irrelevant
+    (assoc d :context (:context partner))))
+
+;;; Start a dialogue with your favorite persona - prompts are stored in resources/prompts/*
+#_(def d (chat-with-gpt 
+          :prompt "prompts/persona-base.md"
+          :voice :onyx 
+          :persona "mark-twain"
+          :instructions "Speak with a deep, southern united states accent"))
+
+;;; Take a look at the context log of your conversation partner
+#_(:context d)
+
+;;; Shut it down
+#_(async/close! d)
