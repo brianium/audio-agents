@@ -122,7 +122,7 @@
               (async/close! mic)
               (async/close! d))
           (recur))))
-    (async/put! d "はじめ") ;; The input message just kicks things off - it's input is irrelevant
+    (async/put! d "はじめ") ;; The input message just kicks things off - its contents are irrelevant
     (assoc d :context (:context partner))))
 
 ;;; Start a dialogue with your favorite persona - prompts are stored in resources/prompts/*
