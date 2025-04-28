@@ -153,3 +153,20 @@
         (async/put! out [v (<! ch)])
         (recur)))
     io))
+
+(defn dialogue
+  "A dialogue ping-pongs each agent's output to the other agent"
+  [a1 a2 & [buf-or-n xf ex-handler]]
+  (let [in  (chan)
+        out (chan buf-or-n xf ex-handler)
+        io  (io-chan in out)]
+    (go-loop [agents (cycle [a1 a2])]
+      (when-some [msg (<! in)]
+        (async/put! (first agents) msg)
+        (let [message (<! (first agents))]
+          (if (nil? message)
+            (async/close! io)
+            (do (async/put! out message)
+                (async/put! in message)
+                (recur (next agents)))))))
+    io))

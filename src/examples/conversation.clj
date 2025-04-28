@@ -1,6 +1,6 @@
 (ns examples.conversation
   "An example of having an audible conversation with gpt in Clojure"
-  (:require [ayyygents.workflow :refer [ayyygent io-chan]]
+  (:require [ayyygents.workflow :refer [ayyygent io-chan dialogue]]
             [audio.microphone :refer [record]]
             [audio.playback :refer [playback]]
             [openai.core :as openai]
@@ -81,26 +81,6 @@
                                                                                      (@*stop-fn)
                                                                                      (reset! *stop-fn nil))))))
 
-;;; Let's create a dialogue type that keeps the conversation going
-
-(defn dialogue
-  "A dialogue ping-pongs each agents output to the other agent"
-  [a1 a2 & [xf ex-handler]]
-  (let [in  (chan)
-        out (chan 1 xf ex-handler)
-        io  (io-chan in out)]
-    (go-loop [agents (cycle [a1 a2])]
-      (when-some [msg (<! in)]
-        (async/put! (first agents) msg)
-        (let [message (<! (first agents))]
-          (if (nil? message)
-            (async/close! io)
-            (do (async/put! out message)
-                (async/put! in message)
-                (recur (next agents)))))))
-    io))
-
-
 ;;; Let's try a conversation between ourselves and the borg
 
 (defn chat-with-gpt
@@ -113,7 +93,7 @@
                            (conversation-partner persona-prompt)
                            (with-speech :voice voice :instructions instructions))
         mic            (mic-chan)
-        d              (dialogue mic partner)]
+        d              (dialogue mic partner (async/sliding-buffer 1))] ;;; We aren't really doing anything with the text output
     (go-loop []
       (let [msg (<! d)]
         (if (nil? msg)
