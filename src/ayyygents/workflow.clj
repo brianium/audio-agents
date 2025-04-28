@@ -36,18 +36,17 @@
 (defn ayyygent
   "An agent is a channel with context. Input and output streams are separated. The agent's :mult value
    can be used to tap into the output stream of the agent. (transition context input) will be called in a separate thread
-   and the results will be put on the agent's output channel."
-  ([context transition]
-   (ayyygent context transition nil))
-  ([context transition ex-handler]
-   (let [in-chan       (chan)
-         out-chan      (chan)
-         mult          (async/mult out-chan)
-         text-out      (chan)
-         _             (async/tap mult text-out)
-         io            (io-chan in-chan text-out)]
-     (async/pipeline-blocking 1 out-chan (map (partial transition context)) in-chan false ex-handler)
-     (Ayyygent. context io mult))))
+   and the results will be put on the agent's output channel. Remaining arguments follow the same semantics as
+   a typical core.async channel, but are applied to the agent output only."
+  [context transition & [buf-or-n xf ex-handler]]
+  (let [in-chan       (chan)
+        out-chan      (chan buf-or-n xf ex-handler)
+        mult          (async/mult out-chan)
+        text-out      (chan)
+        _             (async/tap mult text-out)
+        io            (io-chan in-chan text-out)]
+    (async/pipeline-blocking 1 out-chan (map (partial transition context)) in-chan false ex-handler)
+    (Ayyygent. context io mult)))
 
 (defn ayyygent?
   "Is this an ayyygent?"
