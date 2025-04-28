@@ -41,13 +41,13 @@
 ;;; Next we define an agent for our conversation partner. The agent context will just be an atom with a vector of messages.
 
 (defn conversation-partner
-  "Prompt is text to be used for the system prompt. The persona prompt is used to guide the conversation partner's personality.
+  "Prompt is text to be used for the system prompt. The persona prompt is optional and used to guide the conversation partner's personality.
    This example uses gpt-4o and context backed by an atom"
-  [system-prompt persona-prompt]
-  (let [context    (atom [{:role    :system
-                           :content system-prompt}
-                          {:role    :user
-                           :content persona-prompt}])
+  [system-prompt & [persona-prompt xf]]
+  (let [context    (atom (cond-> [{:role    :system
+                                   :content system-prompt}]
+                           (some? persona-prompt) (conj {:role    :user
+                                                         :content persona-prompt})))
         gpt-4o (fn [*context input]
                  (let [log-entries  (swap! *context conj input)
                        response     (openai/create-response log-entries)
@@ -56,7 +56,7 @@
                                      :format  (openai/format-type response)}]
                    (swap! *context conj output-entry)
                    output-entry))]
-    (ayyygent context gpt-4o)))
+    (ayyygent context gpt-4o 1 xf)))
 
 (defn with-speech
   "We must give our partner the gift of speech. Attaches a stop-playback function to the agent that

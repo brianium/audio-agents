@@ -15,3 +15,9 @@
   []
   (require 'examples.conversation)
   (in-ns 'examples.conversation))
+
+(defn debate 
+  "Load the debate example ns and switch to it"
+  []
+  (require 'examples.debate)
+  (in-ns 'examples.debate))

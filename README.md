@@ -66,10 +66,10 @@ If you have the clojure cli installed, you can get running pretty quickly. CD in
 ```bash
 clj -A:dev
 user=> (dev)
-dev=> (conversation)
+dev=> (conversation) ;;; or (debate)
 examples.conversation=> (def ch (chat-with-gpt params))
-
 ```
+
 
 ## `src/examples/conversation.clj`
 
@@ -88,11 +88,16 @@ Creates a conversational agent with a customizable persona and system prompt.
 ### `with-speech`
 Adds text-to-speech capabilities to a conversational agent.
 
-### `dialogue`
-Facilitates a back-and-forth conversation between two agents.
-
 ### `chat-with-gpt`
 Starts a dialogue with GPT using a specified persona and system prompt.
+
+## `src/examples/debate.clj`
+
+Builds on the conversation example, but it is instead two agents talking to
+one another audibly.
+
+### `debate`
+Returns a `dialogue` channel that starts conversation between two agents. Audio playback stops when the channel is closed.
 
 ## Customization
 
