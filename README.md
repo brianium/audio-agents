@@ -19,7 +19,7 @@ Audio Agents is a Clojure-based project that demonstrates how to create an audib
 ├── resources/              ; Resources for prompts and audio
 │   ├── output.wav
 │   └── prompts/
-│       ├── persona-base.md
+│       ├── persona-base.md ; These prompts are mostly illustrative, written by gpt
 │       └── personas/
 │           └── mark-twain.md
 ├── src/                    ; Source code
