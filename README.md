@@ -18,9 +18,11 @@ Audio Agents is a Clojure-based project that demonstrates how to create an audib
 │   └── user.clj
 ├── resources/              ; Resources for prompts and audio
 │   ├── output.wav
-│   └── prompts/
-│       ├── persona-base.md ; These prompts are mostly illustrative, written by gpt
+│   └── prompts/            ; These prompts are mostly illustrative, written by gpt
+│       ├── persona-base.md 
 │       └── personas/
+│           └── flurbos-fan.md
+│           └── grumbos-fan.md
 │           └── mark-twain.md
 ├── src/                    ; Source code
 │   ├── audio/              ; Audio input/output utilities
@@ -30,6 +32,7 @@ Audio Agents is a Clojure-based project that demonstrates how to create an audib
 │   │   └── workflow.clj
 │   ├── examples/           ; Example usage
 │   │   └── conversation.clj
+│   │   └── debate.clj
 │   └── openai/             ; OpenAI API integration
 │       └── core.clj
 ```
