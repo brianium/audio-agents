@@ -6,6 +6,7 @@
            [java.awt.event WindowAdapter]))
 
 (defn show-image
+  "Display an image in a jframe"
   [^String image-path]
   (with-open [image-stream (io/input-stream image-path)]
     (let [buffered-image (ImageIO/read image-stream)

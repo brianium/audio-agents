@@ -36,7 +36,10 @@ Audio Agents is a Clojure-based project that demonstrates how to create an audib
 │   │   └── debate.clj
 │   │   └── visual.clj
 │   └── openai/             ; OpenAI API integration
-│       └── core.clj
+│   |   └── core.clj
+│   └── visual/             ; Tools for showing things
+│   │   └── popup.clj       ; Sweet jframe display
+│   │   └── viewer.clj       ; Show jframes in a separate JVM
 ```
 
 ## Getting Started

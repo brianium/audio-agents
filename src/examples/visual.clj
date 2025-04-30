@@ -1,7 +1,7 @@
 (ns examples.visual
-  (:require [clojure.core.async :as async :refer [>! <! put! go go-loop chan]]
+  (:require [clojure.core.async :as async :refer [<! go-loop chan]]
             [clojure.java.io :as io]
-            [ayyygents.workflow :refer [ayyygent io-chan flow gate fanout dialogue]]
+            [ayyygents.workflow :refer [ayyygent io-chan dialogue]]
             [openai.core :as oai]
             [examples.conversation :refer [mic-chan with-speech]]
             [visual.viewer :as v]
