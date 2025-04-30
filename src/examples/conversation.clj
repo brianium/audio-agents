@@ -61,17 +61,16 @@
 (defn with-speech
   "We must give our partner the gift of speech. Attaches a stop-playback function to the agent that
    can be used to immediately cut audio playback."
-  [ayyygent & {:keys [voice instructions]
-               :or   {voice :onyx}}]
+  [ayyygent & {:keys [voice instructions content-fn]
+               :or   {voice :onyx content-fn :content}}]
   (let [out      (chan)
         io       (io-chan ayyygent out)
         *stop-fn (atom nil)
-        speak    (fn [{:keys [content]
-                       :as   message} result]
+        speak    (fn [message result]
                    (let [resume-after-playback (fn []
                                                  (async/put! result message)
                                                  (async/close! result))
-                         stop-fn               (-> content
+                         stop-fn               (-> (content-fn message)
                                                    (openai/tts :voice voice :instructions instructions)
                                                    (playback :on-complete resume-after-playback))]
                      (reset! *stop-fn stop-fn)))]

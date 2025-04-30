@@ -1,0 +1,93 @@
+(ns examples.visual
+  (:require [clojure.core.async :as async :refer [>! <! put! go go-loop chan]]
+            [clojure.java.io :as io]
+            [ayyygents.workflow :refer [ayyygent io-chan flow gate fanout dialogue]]
+            [openai.core :as oai]
+            [examples.conversation :refer [mic-chan with-speech]]
+            [visual.viewer :as v]
+            [cheshire.core :as json]))
+
+(def SketchInterview
+  "This malli schema will be used for the structured output of the sketch artist. Should make managing
+  the interview state in conversation much easier"
+  [:map
+   [:state {:description "One of: question, sketch, finished. Indicates what type of step we are on in the interview"} :string] ;;; Need to investigate why [:enum] isn't accepted
+   [:text {:description "Text for the user. What you want to say. Always present"} :string]
+   [:prompt {:description "A dall-e-3 image prompt. Only present when state is sketch"} :string]])
+
+(defn sketch-artist
+  "An ayyygent backed by a structured output that supports interviewing for visual details. The :content property
+  of the message will be parsed into a hash-map"
+  []
+  (let [system-prompt (slurp (io/resource "prompts/personas/sketch-artist.md"))
+        *context      (atom [{:role :system
+                              :content system-prompt}])
+        transition    (fn [*ctx input]
+                        (let [log-entries (swap! *ctx conj input)
+                              response    (oai/create-response log-entries :format 'SketchInterview)
+                              entry       {:role :assistant :content (oai/output-text response)}]
+                          (swap! *ctx conj entry)
+                          entry))
+        parse-string  #(json/parse-string % keyword)
+        as-map        #(update % :content parse-string)]
+    (ayyygent *context transition 1 (map as-map))))
+
+(defn with-display
+  "Gives our sketch artist the power to show us images. We will attach state from the original agent and the
+  any audio capabilities"
+  [sketch-artist]
+  (let [out         (chan)
+        io          (io-chan sketch-artist out)
+        show        (fn [{{:keys [state prompt]} :content :as entry}]
+                      (when (= state "sketch")
+                        (println "Generating sketch...")
+                        (v/launch-image-viewer (oai/dall-e-3 prompt)))
+                      entry)]
+    (async/pipeline-blocking 1 out (map show) sketch-artist false)
+    (assoc io
+           :context       (:context sketch-artist)
+           :mult          (:mult sketch-artist)
+           :stop-playback (:stop-playback sketch-artist))))
+
+(defn interview
+  "Start a dialogue with the sketch artist. Returns a channel with the context of the sketch artist. Closing
+   the channel will stop audio playback immediately."
+  [& {:keys [voice instructions]
+      :or   {voice :onyx}}]
+  (let [artist        (with-display
+                        (with-speech (sketch-artist)
+                          :instructions instructions
+                          :voice        voice
+                          :content-fn  #(get-in % [:content :text])))
+        mic            (mic-chan)
+        d              (dialogue artist mic (async/sliding-buffer 1))]
+    (go-loop []
+      (let [msg (<! d)]
+        (println msg)
+        (if (or (nil? msg) (= "finished" (get-in msg [:content :state])))
+          (do (println "Interview complete")
+              (async/close! artist)
+              (async/close! mic)
+              (async/close! d)
+              ((:stop-playback artist)))
+          (recur))))
+    (async/put! d {:role :user :content "I am ready to be interviewed"}) ;; We want the sketch artist to start the interview
+    (assoc d :context (:context artist))))
+
+;;; Kick the interview off
+
+#_(def artist (interview
+               :instructions "Speak like a 1920s New York mobster. Think Humphrey Bogart"
+               :content-fn #(get-in % [:content :text])))
+
+;;; Stop any current audio playback
+
+#_((:stop-playback artist))
+
+;;; Check the sketch artist's context out
+
+#_(println (:context artist))
+
+;;; Shut it all down
+
+#_(async/close! artist)

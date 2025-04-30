@@ -24,6 +24,7 @@ Audio Agents is a Clojure-based project that demonstrates how to create an audib
 │           └── flurbos-fan.md
 │           └── grumbos-fan.md
 │           └── mark-twain.md
+│           └── sketch-artist.md
 ├── src/                    ; Source code
 │   ├── audio/              ; Audio input/output utilities
 │   │   ├── microphone.clj
@@ -33,6 +34,7 @@ Audio Agents is a Clojure-based project that demonstrates how to create an audib
 │   ├── examples/           ; Example usage
 │   │   └── conversation.clj
 │   │   └── debate.clj
+│   │   └── visual.clj
 │   └── openai/             ; OpenAI API integration
 │       └── core.clj
 ```
@@ -69,7 +71,7 @@ If you have the clojure cli installed, you can get running pretty quickly. CD in
 ```bash
 clj -A:dev
 user=> (dev)
-dev=> (conversation) ;;; or (debate)
+dev=> (conversation) ;;; or (debate) or (sketch-artist)
 examples.conversation=> (def ch (chat-with-gpt params))
 ```
 
@@ -101,6 +103,14 @@ one another audibly.
 
 ### `debate`
 Returns a `dialogue` channel that starts conversation between two agents. Audio playback stops when the channel is closed.
+
+## `src/examples/visual.clj`
+
+Experimenting with a conversational agent that has the ability to show images
+
+### `interview`
+Returns a `dialogue` channel that causes a sketch artist to begin an audible interview with you. When the sketch artist
+has enough information, it will display an image via dall-e-3.
 
 ## Customization
 

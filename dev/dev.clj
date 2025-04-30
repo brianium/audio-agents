@@ -21,3 +21,10 @@
   []
   (require 'examples.debate)
   (in-ns 'examples.debate))
+
+(defn sketch-artist
+  "An audio agent with a visual output modality. An audible sketch artist
+  experience"
+  []
+  (require 'examples.visual)
+  (in-ns 'examples.visual))

@@ -1,5 +1,6 @@
 {:paths   ["src" "resources"]
- :deps    {com.openai/openai-java            {:mvn/version "1.4.1"}
+ :deps    {cheshire/cheshire                 {:mvn/version "6.0.0"}
+           com.openai/openai-java            {:mvn/version "1.4.1"}
            metosin/malli                     {:mvn/version "0.17.0"}
            org.clojure/clojure               {:mvn/version "1.12.0"}
            org.clojure/core.async            {:mvn/version "1.8.741"}}
