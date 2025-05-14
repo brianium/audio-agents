@@ -2,7 +2,7 @@
   (:require [clojure.core.async :as async :refer [<! go-loop chan]]
             [clojure.java.io :as io]
             [ayyygents.workflow :refer [ayyygent io-chan dialogue]]
-            [openai.core :as oai]
+            [oai-clj.core :as oai]
             [examples.conversation :refer [mic-chan with-speech]]
             [visual.viewer :as v]
             [cheshire.core :as json]))
@@ -24,8 +24,14 @@
                               :content system-prompt}])
         transition    (fn [*ctx input]
                         (let [log-entries (swap! *ctx conj input)
-                              response    (oai/create-response log-entries :format 'SketchInterview)
-                              entry       {:role :assistant :content (oai/output-text response)}]
+                              response    (oai/create-response :easy-input-messages log-entries :format 'SketchInterview)
+                              entry       {:role :assistant :content (-> (:output response)
+                                                                         first
+                                                                         :message
+                                                                         :content
+                                                                         first
+                                                                         :output-text
+                                                                         :text)}]
                           (swap! *ctx conj entry)
                           entry))
         parse-string  #(json/parse-string % keyword)
@@ -41,7 +47,10 @@
         show        (fn [{{:keys [state prompt]} :content :as entry}]
                       (when (= state "sketch")
                         (println "Generating sketch...")
-                        (v/launch-image-viewer (oai/dall-e-3 prompt)))
+                        (v/launch-image-viewer (-> (oai/generate-image :model :dall-e-3 :size :1024x1024 :prompt prompt)
+                                                   (:data)
+                                                   (first)
+                                                   (:url))))
                       entry)]
     (async/pipeline-blocking 1 out (map show) sketch-artist false)
     (assoc io

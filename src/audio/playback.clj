@@ -4,7 +4,7 @@
   (:import [javax.sound.sampled
             AudioSystem DataLine$Info SourceDataLine
             AudioFormat AudioFormat$Encoding
-            LineUnavailableException AudioInputStream]
+            LineUnavailableException]
            [java.io BufferedInputStream]))
 
 (defn playback

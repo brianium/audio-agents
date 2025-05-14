@@ -3,9 +3,9 @@
    from examples.conversation, but this time we will pit two agents against each other. Like
    listening to two very passionate people argue on the subway."
   (:require [ayyygents.workflow :refer [dialogue]]
-            [openai.core :as openai]
+            [oai-clj.models.audio :as openai]
             [examples.conversation :as conv]
-            [clojure.core.async :as async :refer [<! go-loop chan]]
+            [clojure.core.async :as async :refer [<! go-loop]]
             [clojure.java.io :as io]))
 
 (def AgentSpec

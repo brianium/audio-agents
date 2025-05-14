@@ -3,7 +3,7 @@
   (:require [ayyygents.workflow :refer [ayyygent io-chan dialogue]]
             [audio.microphone :refer [record]]
             [audio.playback :refer [playback]]
-            [openai.core :as openai]
+            [oai-clj.core :as openai]
             [clojure.core.async :as async :refer [<! go-loop chan]]
             [clojure.java.io :as io]
             [clojure.set :as set])
@@ -22,10 +22,9 @@
         io         (io-chan in out)
         transcribe (fn [audio-bytes]
                      (let [input           (ByteArrayInputStream. audio-bytes)
-                           random-filename (str (java.util.UUID/randomUUID) ".wav")]
-                       (-> (openai/transcribe input random-filename)
-                           (assoc :role :user)
-                           (set/rename-keys {:text :content}))))]
+                           random-filename (str (java.util.UUID/randomUUID) ".wav")
+                           result (openai/transcribe :file {:value input :filename random-filename})]
+                       {:role :user :content (get-in result [:transcription :text])}))]
     (async/pipeline-blocking 1 out (map transcribe) audio-in false)
     (go-loop []
       (let [msg (<! in)]
@@ -50,10 +49,14 @@
                                                          :content persona-prompt})))
         gpt-4o (fn [*context input]
                  (let [log-entries  (swap! *context conj input)
-                       response     (openai/create-response log-entries)
+                       response     (openai/create-response :easy-input-messages log-entries)
                        output-entry {:role    :assistant
-                                     :content (openai/output-text response)
-                                     :format  (openai/format-type response)}]
+                                     :content (-> (:output response) first :message :content first :output-text :text)
+                                     :format  (when-some [fmt (some-> (:text response) :format)]
+                                                (if (some? (:json-schema fmt))
+                                                  :json-schema
+                                                  :text))}
+                       _ (println output-entry)]
                    (swap! *context conj output-entry)
                    output-entry))]
     (ayyygent context gpt-4o 1 xf)))
@@ -70,8 +73,7 @@
                    (let [resume-after-playback (fn []
                                                  (async/put! result message)
                                                  (async/close! result))
-                         stop-fn               (-> (content-fn message)
-                                                   (openai/tts :voice voice :instructions instructions)
+                         stop-fn               (-> (openai/create-speech :input (content-fn message) :voice voice :instructions instructions)
                                                    (playback :on-complete resume-after-playback))]
                      (reset! *stop-fn stop-fn)))]
     (async/pipeline-async 1 out speak ayyygent false)
